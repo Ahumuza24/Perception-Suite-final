@@ -237,18 +237,15 @@ function AdminDashboardContent() {
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <PerceptionSuiteLogo />
-            <span className="font-semibold text-lg hidden md:block">Admin Panel</span>
+            
           </div>
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-1 text-sm text-green-600 dark:text-green-400">
-              <ShieldCheck className="h-4 w-4" />
-              <span className="hidden sm:inline">Secure Admin Session</span>
-            </div>
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative flex items-center space-x-2 p-1 h-auto">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={userAvatar} alt={userName || "Admin"} data-ai-hint="admin avatar" />
+                    
                     <AvatarFallback>{getUserInitials()}</AvatarFallback>
                   </Avatar>
                   <div className="hidden md:flex flex-col items-start">
@@ -342,7 +339,7 @@ function AdminDashboardContent() {
       </AlertDialog>
 
       <footer className="py-6 text-center text-sm text-muted-foreground border-t">
-        &copy; {new Date().getFullYear()} PerceptionSuite Admin Panel.
+        &copy; {new Date().getFullYear()} Picasso Design Agency Admin Panel.
       </footer>
     </div>
   );

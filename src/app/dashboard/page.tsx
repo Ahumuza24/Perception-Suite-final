@@ -10,7 +10,7 @@ import {
   ExternalLink,
   LogOut,
   Loader2,
-  ShieldCheck,
+  
   ChevronDown,
   LayoutDashboard,
   LifeBuoy,
@@ -169,10 +169,7 @@ function DashboardContent() {
           </div>
 
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-1 text-sm text-green-600 dark:text-green-400">
-              <ShieldCheck className="h-4 w-4" />
-              <span className="hidden sm:inline">Secure Connection</span>
-            </div>
+            
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -214,7 +211,7 @@ function DashboardContent() {
         <Card className="shadow-lg border-border">
           <CardHeader>
             <CardTitle className="text-3xl font-headline">👋 Welcome back, {userName}!</CardTitle>
-            <CardDescription className="text-md">Accessing resources for {orgName}</CardDescription>
+            <CardDescription className="text-md">Access resources for {orgName}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
@@ -229,7 +226,7 @@ function DashboardContent() {
           <CardHeader>
             <CardTitle className="text-2xl font-headline flex items-center">
               <FolderKanban className="mr-3 h-7 w-7 text-primary" />
-              Your Team Drive
+              Your Organization Collateral
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -237,12 +234,12 @@ function DashboardContent() {
               <CardHeader>
                   <CardTitle className="text-xl flex items-center">
                       <Rocket className="mr-2 h-5 w-5 text-primary" />
-                      Access {orgName} Shared Drive
+                      Access {orgName} Drive
                   </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                   <p className="text-muted-foreground">
-                    All your team documents and resources are organized in your dedicated Drive folder.
+                    All your organization's design collateral in one place.
                   </p>
                   <Button
                     size="lg"
@@ -251,19 +248,19 @@ function DashboardContent() {
                     aria-label={`Open ${orgName} Google Drive folder`}
                     disabled={driveLink === "#" || !driveLink.startsWith("https://drive.google.com/")}
                   >
-                    <ExternalLink className="mr-2 h-5 w-5" /> Open Drive Folder
+                    <ExternalLink className="mr-2 h-5 w-5" /> Open Folder
                   </Button>
                   {driveLink === "#" && <p className="text-sm text-destructive">Drive link not configured for your domain.</p>}
               </CardContent>
             </Card>
-            <p className="text-sm text-muted-foreground text-center pt-2">
+            {/* <p className="text-sm text-muted-foreground text-center pt-2">
               📊 Folder contains: -- files • Last updated: --
-            </p>
+            </p> */}
           </CardContent>
         </Card>
       </main>
       <footer className="py-6 text-center text-sm text-muted-foreground border-t">
-        &copy; {new Date().getFullYear()} PerceptionSuite. Secure and Efficient.
+        &copy; {new Date().getFullYear()} Picasso Design Agency
       </footer>
     </div>
   );

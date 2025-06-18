@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -87,7 +86,7 @@ export function LoginForm() {
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-6">
+          <div className="flex justify-center text-center min-h-[70px] min-w-[660px]">
             <PerceptionSuiteLogo />
           </div>
           <CardTitle className="text-3xl font-headline">Welcome Back</CardTitle>
@@ -105,7 +104,7 @@ export function LoginForm() {
                       <Mail className="mr-2 h-4 w-4" /> Email Address
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="you@example.com" {...field} disabled={isLoading} />
+                      <Input placeholder="" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -120,7 +119,7 @@ export function LoginForm() {
                       <Lock className="mr-2 h-4 w-4" /> Password
                     </FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
+                      <Input type="password" placeholder="" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -128,7 +127,7 @@ export function LoginForm() {
               />
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? <Loader2 className="animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
-                Secure Login
+                Login
               </Button>
             </form>
           </Form>
@@ -140,14 +139,10 @@ export function LoginForm() {
               Sign up
             </Link>
           </div>
-          <div className="flex items-center text-sm text-muted-foreground mt-4">
-            <ShieldCheck className="h-4 w-4 mr-2 text-green-500" />
-            <span>Your connection is secure. Powered by trusted infrastructure.</span>
-          </div>
-        </CardFooter>
+          </CardFooter>
       </Card>
        <p className="mt-8 text-center text-sm text-muted-foreground">
-        &copy; {new Date().getFullYear()} PerceptionSuite. All rights reserved.
+        &copy; {new Date().getFullYear()} Picasso Design Agency. All rights reserved.
       </p>
     </div>
   );

@@ -108,14 +108,14 @@ export function SignupForm() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-6">
+      <CardHeader className="text-center">
+          <div className="flex justify-center text-center min-h-[70px] min-w-[660px]">
             <PerceptionSuiteLogo />
           </div>
           <CardTitle className="text-3xl font-headline flex items-center justify-center">
             <UserPlus className="mr-3 h-8 w-8 text-primary" /> Create Your Account
           </CardTitle>
-          <CardDescription>Join PerceptionSuite and get started today.</CardDescription>
+          
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -129,7 +129,7 @@ export function SignupForm() {
                       <User className="mr-2 h-4 w-4" /> Full Name
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="John Doe" {...field} disabled={isLoading} />
+                      <Input placeholder="" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -144,7 +144,7 @@ export function SignupForm() {
                       <Mail className="mr-2 h-4 w-4" /> Email Address
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="you@example.com" {...field} disabled={isLoading} />
+                      <Input placeholder="" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -159,7 +159,7 @@ export function SignupForm() {
                       <Lock className="mr-2 h-4 w-4" /> Password
                     </FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
+                      <Input type="password" placeholder="" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -174,7 +174,7 @@ export function SignupForm() {
                       <Lock className="mr-2 h-4 w-4" /> Confirm Password
                     </FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="••••••••" {...field} disabled={isLoading} />
+                      <Input type="password" placeholder="" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -194,14 +194,10 @@ export function SignupForm() {
               Log in
             </Link>
           </div>
-          <div className="flex items-center text-sm text-muted-foreground mt-4">
-            <ShieldCheck className="h-4 w-4 mr-2 text-green-500" />
-            <span>Your information is kept secure.</span>
-          </div>
-        </CardFooter>
+                  </CardFooter>
       </Card>
        <p className="mt-8 text-center text-sm text-muted-foreground">
-        &copy; {new Date().getFullYear()} PerceptionSuite. All rights reserved.
+        &copy; {new Date().getFullYear()} Picasso Design Agency. All rights reserved.
       </p>
     </div>
   );

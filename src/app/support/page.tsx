@@ -14,7 +14,7 @@ export default function SupportPage() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 text-center">
       <Card className="w-full max-w-lg shadow-xl border-border">
         <CardHeader>
-          <div className="mx-auto mb-6">
+          <div className="mx-auto mb-5">
             <PerceptionSuiteLogo />
           </div>
           <div className="mx-auto bg-primary/10 p-3 rounded-full mb-4">
@@ -27,11 +27,9 @@ export default function SupportPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <p className="text-muted-foreground">
-            If you need assistance or have any questions, please reach out to our support team at support@perceptionsuite.com or visit our help portal.
+            If you need assistance, please reach out to our support team at creative@picassodesign-agency.com <br /> or <br />  Call: +256 777 581360.
           </p>
-          <p className="text-muted-foreground">
-            (This is a placeholder support page.)
-          </p>
+          
           <Button onClick={() => router.back()} className="mt-4" variant="outline">
             <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
           </Button>
