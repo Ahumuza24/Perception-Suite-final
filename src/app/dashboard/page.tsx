@@ -45,6 +45,8 @@ function DashboardContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState<string>("User");
   const [userEmail, setUserEmail] = useState<string>("");
+  const [isClient, setIsClient] = useState(false);
+  const [currentYear, setCurrentYear] = useState<number>();
   
   // Add cache state and timestamp for data freshness tracking
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
@@ -290,7 +292,7 @@ function DashboardContent() {
                   </p>
                   <Button
                     size="lg"
-                    onClick={() => window.open(driveLink, "_blank")}
+                    onClick={() => isClient ? window.open(driveLink, "_blank") : null}
                     className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
                     aria-label={`Open ${orgName} Google Drive folder`}
                     disabled={driveLink === "#" || !driveLink.startsWith("https://drive.google.com/")}
@@ -307,7 +309,7 @@ function DashboardContent() {
         </Card>
       </main>
       <footer className="py-6 text-center text-sm text-muted-foreground border-t">
-        &copy; {new Date().getFullYear()} Picasso Design Agency
+        &copy; {currentYear || '2024'} Picasso Design Agency
       </footer>
     </div>
   );
