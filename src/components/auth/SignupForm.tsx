@@ -109,7 +109,7 @@ export function SignupForm() {
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <Card className="w-full max-w-md shadow-xl">
       <CardHeader className="text-center">
-          <div className="flex justify-center text-center min-h-[70px] min-w-[660px]">
+          <div className="flex justify-center w-full mb-4">
             <PerceptionSuiteLogo />
           </div>
           <CardTitle className="text-3xl font-headline flex items-center justify-center">

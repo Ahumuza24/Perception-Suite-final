@@ -94,14 +94,31 @@ function AdminDashboardContent() {
 
   const [isDeleteMappingAlertOpen, setIsDeleteMappingAlertOpen] = useState(false);
   const [mappingIdToDelete, setMappingIdToDelete] = useState<string | null>(null);
+  
+  // Add cache state and timestamp for data freshness tracking
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  
+  // Cache expiration time in milliseconds (e.g., 5 minutes)
+  const CACHE_EXPIRATION = 5 * 60 * 1000;
+
+  // Function to check if data is stale
+  const isDataStale = () => {
+    return !lastFetchTime || (Date.now() - lastFetchTime > CACHE_EXPIRATION);
+  };
 
   const domainMappingForm = useForm<DomainMappingFormValues>({
     resolver: zodResolver(domainMappingFormSchema),
     defaultValues: { domain: "", driveLink: "" },
   });
 
-  const fetchDomainMappings = async () => {
+  const fetchDomainMappings = async (forceRefresh = false) => {
     if (!authUser || authUser.user_metadata?.role !== 'admin') return;
+    
+    // Skip fetching if data is fresh and not forcing refresh
+    if (!forceRefresh && !isDataStale() && domainMappings.length > 0) {
+      return;
+    }
+    
     setIsLoadingMappings(true);
     const { data, error } = await supabase.from("domain_mappings").select("*").order("domain", { ascending: true });
     if (error) {
@@ -109,9 +126,24 @@ function AdminDashboardContent() {
       setDomainMappings([]);
     } else {
       setDomainMappings(data || []);
+      setLastFetchTime(Date.now());
     }
     setIsLoadingMappings(false);
   };
+  
+  // Document visibility change handler
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // Only refresh data if document becomes visible and data is stale
+      if (document.visibilityState === 'visible' && authUser && isDataStale()) {
+        // Background refresh without loading indicator
+        fetchDomainMappings(false);
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [authUser]);
 
   useEffect(() => {
     const checkAuthAndRole = async () => {
@@ -132,7 +164,7 @@ function AdminDashboardContent() {
         return;
       }
 
-      if (!authUser || authUser.id !== userToVerify.id || authUser.user_metadata?.role !== userRole) {
+      if (!authUser || authUser.id !== userToVerify.id) {
         setAuthUser(userToVerify);
       }
       setUserEmail(userToVerify.email || "");
@@ -152,18 +184,50 @@ function AdminDashboardContent() {
       if (event === 'SIGNED_OUT' || !session) {
         setAuthUser(null);
         router.push('/'); // Ensure redirect on sign out
-      } else if (session?.user) {
-        const currentAuthUserRole = authUser?.user_metadata?.role;
-        const newSessionUserRole = session.user.user_metadata?.role;
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || !authUser || session.user.id !== authUser.id || currentAuthUserRole !== newSessionUserRole) {
-          setAuthUser(session.user); // This will trigger the main useEffect to re-run checkAuthAndRole
-        }
+      } else if (session?.user && (event === 'SIGNED_IN' || !authUser)) {
+        // Only update auth user on sign in or if not already set
+        setAuthUser(session.user);
       }
     });
     return () => { authListener?.subscription.unsubscribe(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser]); // Dependency on authUser is key for re-evaluation
 
+  // Update the CRUD operations to force refresh after changes
+  const handleDeleteMapping = async () => {
+    if (!mappingIdToDelete) return;
+    const { error } = await supabase.from("domain_mappings").delete().eq("id", mappingIdToDelete);
+    if (error) {
+      toast({ title: "Error Deleting Mapping", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Success", description: "Domain mapping deleted successfully." });
+      fetchDomainMappings(true); // Force refresh after deletion
+    }
+    setIsDeleteMappingAlertOpen(false); setMappingIdToDelete(null);
+  };
+
+  const onSubmitDomainMapping = async (values: DomainMappingFormValues) => {
+    if (editingMapping) {
+      const { error } = await supabase.from("domain_mappings").update({ domain: values.domain, drive_link: values.driveLink }).eq("id", editingMapping.id);
+      if (error) {
+        toast({ title: "Error Updating Mapping", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Success", description: "Domain mapping updated successfully." });
+        setIsMappingDialogOpen(false); setEditingMapping(null); 
+        fetchDomainMappings(true); // Force refresh after update
+      }
+    } else {
+      const { error } = await supabase.from("domain_mappings").insert([{ domain: values.domain, drive_link: values.driveLink }]);
+      if (error) {
+        toast({ title: "Error Adding Mapping", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Success", description: "Domain mapping added successfully." });
+        setIsMappingDialogOpen(false); 
+        fetchDomainMappings(true); // Force refresh after insertion
+      }
+    }
+    domainMappingForm.reset();
+  };
 
   const handleLogout = async () => {
     setIsLoading(true);
@@ -189,38 +253,7 @@ function AdminDashboardContent() {
     setIsDeleteMappingAlertOpen(true);
   };
 
-  const handleDeleteMapping = async () => {
-    if (!mappingIdToDelete) return;
-    const { error } = await supabase.from("domain_mappings").delete().eq("id", mappingIdToDelete);
-    if (error) {
-      toast({ title: "Error Deleting Mapping", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Success", description: "Domain mapping deleted successfully." });
-      fetchDomainMappings();
-    }
-    setIsDeleteMappingAlertOpen(false); setMappingIdToDelete(null);
-  };
 
-  const onSubmitDomainMapping = async (values: DomainMappingFormValues) => {
-    if (editingMapping) {
-      const { error } = await supabase.from("domain_mappings").update({ domain: values.domain, drive_link: values.driveLink }).eq("id", editingMapping.id);
-      if (error) {
-        toast({ title: "Error Updating Mapping", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: "Success", description: "Domain mapping updated successfully." });
-        setIsMappingDialogOpen(false); setEditingMapping(null); fetchDomainMappings();
-      }
-    } else {
-      const { error } = await supabase.from("domain_mappings").insert([{ domain: values.domain, drive_link: values.driveLink }]);
-      if (error) {
-        toast({ title: "Error Adding Mapping", description: error.message, variant: "destructive" });
-      } else {
-        toast({ title: "Success", description: "Domain mapping added successfully." });
-        setIsMappingDialogOpen(false); fetchDomainMappings();
-      }
-    }
-    domainMappingForm.reset();
-  };
 
   if (isLoading || !authUser || authUser.user_metadata?.role !== 'admin') {
     return (

@@ -45,7 +45,67 @@ function DashboardContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState<string>("User");
   const [userEmail, setUserEmail] = useState<string>("");
+  
+  // Add cache state and timestamp for data freshness tracking
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  const [domainMappingCache, setDomainMappingCache] = useState<{domain: string, drive_link: string} | null>(null);
+  
+  // Cache expiration time in milliseconds (e.g., 5 minutes)
+  const CACHE_EXPIRATION = 5 * 60 * 1000;
 
+  // Function to check if data is stale
+  const isDataStale = () => {
+    return !lastFetchTime || (Date.now() - lastFetchTime > CACHE_EXPIRATION);
+  };
+
+  // Function to fetch domain mapping with caching
+  const fetchDomainMapping = async (email: string) => {
+    if (!email) return null;
+    
+    const currentOrgDomain = email.substring(email.lastIndexOf("@") + 1).toLowerCase();
+    
+    // Use cached data if available and not stale
+    if (domainMappingCache && !isDataStale()) {
+      return domainMappingCache;
+    }
+    
+    // Fetch fresh data
+    const { data: mapping, error: mappingError } = await supabase
+      .from('domain_mappings')
+      .select('drive_link, domain')
+      .eq('domain', currentOrgDomain)
+      .single();
+      
+    if (mappingError || !mapping) {
+      return null;
+    }
+    
+    // Update cache and timestamp
+    setDomainMappingCache(mapping);
+    setLastFetchTime(Date.now());
+    
+    return mapping;
+  };
+
+  // Document visibility change handler
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // Only refresh data if document becomes visible and data is stale
+      if (document.visibilityState === 'visible' && authUser && isDataStale()) {
+        // Background refresh without loading indicator
+        fetchDomainMapping(authUser.email || "").then(mapping => {
+          if (mapping) {
+            setOrgName(mapping.domain);
+            setOrgLogo(`https://placehold.co/64x64.png?text=${mapping.domain[0].toUpperCase()}`);
+            setDriveLink(mapping.drive_link);
+          }
+        });
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [authUser]);
 
   useEffect(() => {
     const checkAuthAndRole = async () => {
@@ -66,7 +126,7 @@ function DashboardContent() {
         return;
       }
       
-      if (!authUser || authUser.id !== userToVerify.id || authUser.user_metadata?.role !== userRole ) {
+      if (!authUser || authUser.id !== userToVerify.id) {
          setAuthUser(userToVerify);
       }
 
@@ -81,32 +141,22 @@ function DashboardContent() {
         return;
       }
 
-      const currentOrgDomain = currentEmail.substring(currentEmail.lastIndexOf("@") + 1).toLowerCase();
+      // Use the cached fetch function
+      const mapping = await fetchDomainMapping(currentEmail);
 
-      if (currentOrgDomain) {
-        const { data: mapping, error: mappingError } = await supabase
-          .from('domain_mappings')
-          .select('drive_link, domain')
-          .eq('domain', currentOrgDomain) // Query with lowercase domain
-          .single();
-
-        if (mappingError || !mapping) {
-          console.error("Domain mapping error or not found:", mappingError);
-          toast({ title: "Domain Not Recognized", description: `Your domain (${currentOrgDomain}) is not configured for Drive access. Redirecting...`, variant: "destructive", duration: 5000 });
-          router.push("/error/unrecognized-domain");
-          setIsLoading(false);
-          return;
-        } else {
-          setOrgName(mapping.domain);
-          setOrgLogo(`https://placehold.co/64x64.png?text=${mapping.domain[0].toUpperCase()}`);
-          setDriveLink(mapping.drive_link);
-        }
+      if (!mapping) {
+        const currentOrgDomain = currentEmail.substring(currentEmail.lastIndexOf("@") + 1).toLowerCase();
+        console.error("Domain mapping not found for:", currentOrgDomain);
+        toast({ title: "Domain Not Recognized", description: `Your domain (${currentOrgDomain}) is not configured for Drive access. Redirecting...`, variant: "destructive", duration: 5000 });
+        router.push("/error/unrecognized-domain");
+        setIsLoading(false);
+        return;
       } else {
-         toast({ title: "Invalid Email", description: "Could not determine your organization's domain from email.", variant: "destructive", duration: 5000 });
-         router.push("/error/unrecognized-domain");
-         setIsLoading(false);
-         return;
+        setOrgName(mapping.domain);
+        setOrgLogo(`https://placehold.co/64x64.png?text=${mapping.domain[0].toUpperCase()}`);
+        setDriveLink(mapping.drive_link);
       }
+      
       setIsLoading(false);
     };
 
@@ -120,12 +170,9 @@ function DashboardContent() {
       if (event === 'SIGNED_OUT' || !session) {
         setAuthUser(null);
         router.push('/');
-      } else if (session?.user) {
-        const currentAuthUserRole = authUser?.user_metadata?.role;
-        const newSessionUserRole = session.user.user_metadata?.role;
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || !authUser || session.user.id !== authUser.id || currentAuthUserRole !== newSessionUserRole) {
-          setAuthUser(session.user); 
-        }
+      } else if (session?.user && (event === 'SIGNED_IN' || !authUser)) {
+        // Only update auth user on sign in or if not already set
+        setAuthUser(session.user); 
       }
     });
 

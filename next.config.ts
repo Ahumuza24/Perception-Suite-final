@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
+    unoptimized: true, // Add this line for static exports
     remotePatterns: [
       {
         protocol: 'https',
