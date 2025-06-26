@@ -46,7 +46,12 @@ function DashboardContent() {
   const [userName, setUserName] = useState<string>("User");
   const [userEmail, setUserEmail] = useState<string>("");
   const [isClient, setIsClient] = useState(false);
-  const [currentYear, setCurrentYear] = useState<number>();
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
+  
+  // Set client-side state on mount
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   
   // Add cache state and timestamp for data freshness tracking
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
@@ -60,6 +65,36 @@ function DashboardContent() {
     return !lastFetchTime || (Date.now() - lastFetchTime > CACHE_EXPIRATION);
   };
 
+  // Function to normalize and validate drive URL
+  const normalizeDriveUrl = (url: string): string => {
+    console.log('Normalizing URL:', url);
+    if (!url) {
+      console.log('URL is empty, returning #');
+      return '#';
+    }
+    
+    // Ensure the URL has a protocol
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      console.log('Adding https:// protocol to URL');
+      url = 'https://' + url;
+    }
+    
+    // If it's a Google Drive URL, ensure it's in the correct format
+    if (url.includes('drive.google.com')) {
+      console.log('Processing Google Drive URL');
+      // Convert any Google Drive URL to the standard format
+      const fileIdMatch = url.match(/[\w-]{25,}/);
+      if (fileIdMatch) {
+        const normalizedUrl = `https://drive.google.com/drive/folders/${fileIdMatch[0]}`;
+        console.log('Normalized Google Drive URL:', normalizedUrl);
+        return normalizedUrl;
+      }
+    }
+    
+    console.log('Returning URL as is:', url);
+    return url;
+  };
+
   // Function to fetch domain mapping with caching
   const fetchDomainMapping = async (email: string) => {
     if (!email) return null;
@@ -71,22 +106,34 @@ function DashboardContent() {
       return domainMappingCache;
     }
     
-    // Fetch fresh data
-    const { data: mapping, error: mappingError } = await supabase
-      .from('domain_mappings')
-      .select('drive_link, domain')
-      .eq('domain', currentOrgDomain)
-      .single();
+    try {
+      // Fetch fresh data
+      const { data: mapping, error: mappingError } = await supabase
+        .from('domain_mappings')
+        .select('drive_link, domain')
+        .eq('domain', currentOrgDomain)
+        .single();
+        
+      if (mappingError || !mapping) {
+        console.error('Error fetching domain mapping:', mappingError);
+        return null;
+      }
       
-    if (mappingError || !mapping) {
+      // Normalize the drive link
+      const normalizedMapping = {
+        ...mapping,
+        drive_link: normalizeDriveUrl(mapping.drive_link)
+      };
+      
+      // Update cache and timestamp
+      setDomainMappingCache(normalizedMapping);
+      setLastFetchTime(Date.now());
+      
+      return normalizedMapping;
+    } catch (error) {
+      console.error('Error in fetchDomainMapping:', error);
       return null;
     }
-    
-    // Update cache and timestamp
-    setDomainMappingCache(mapping);
-    setLastFetchTime(Date.now());
-    
-    return mapping;
   };
 
   // Document visibility change handler
@@ -290,15 +337,36 @@ function DashboardContent() {
                   <p className="text-muted-foreground">
                     All your organization's design collateral in one place.
                   </p>
-                  <Button
-                    size="lg"
-                    onClick={() => isClient ? window.open(driveLink, "_blank") : null}
-                    className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
-                    aria-label={`Open ${orgName} Google Drive folder`}
-                    disabled={driveLink === "#" || !driveLink.startsWith("https://drive.google.com/")}
-                  >
-                    <ExternalLink className="mr-2 h-5 w-5" /> Open Folder
-                  </Button>
+                  <div className="space-y-2">
+                    <Button
+                      size="lg"
+                      onClick={() => {
+                        if (!driveLink || driveLink === '#') {
+                          console.error('No valid drive link');
+                          return;
+                        }
+                        
+                        // Create a temporary anchor element to handle the click
+                        const a = document.createElement('a');
+                        a.href = driveLink;
+                        a.target = '_blank';
+                        a.rel = 'noopener noreferrer';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      }}
+                      className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
+                      aria-label={`Open ${orgName} Google Drive folder`}
+                      disabled={!isClient || !driveLink || driveLink === "#" || !driveLink.startsWith("https://")}
+                    >
+                      <ExternalLink className="mr-2 h-5 w-5" /> Open Folder
+                    </Button>
+                    {driveLink && driveLink !== "#" && (
+                      <p className="text-xs text-muted-foreground break-all">
+                        Link: <span className="text-foreground">{driveLink}</span>
+                      </p>
+                    )}
+                  </div>
                   {driveLink === "#" && <p className="text-sm text-destructive">Drive link not configured for your domain.</p>}
               </CardContent>
             </Card>
