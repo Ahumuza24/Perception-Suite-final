@@ -360,11 +360,13 @@ function DashboardContent() {
                             <DialogTrigger asChild>
                               <Button variant="outline" size="sm">Preview</Button>
                             </DialogTrigger>
-                            <DialogContent className="w-[90vw] h-[90vh]">
-                              <DialogHeader>
+                            <DialogContent className="w-[90vw] h-[90vh] flex flex-col p-0">
+                              <DialogHeader className="p-4">
                                 <DialogTitle>{item.name}</DialogTitle>
                               </DialogHeader>
-                              <iframe src={item.webViewLink?.replace('view', 'preview')} className="w-full h-full" />
+                              <div className="flex-grow">
+                                <iframe src={item.webViewLink?.replace('view', 'preview')} className="w-full h-full" />
+                              </div>
                             </DialogContent>
                           </Dialog>
                           <a href={item.webContentLink} download>
