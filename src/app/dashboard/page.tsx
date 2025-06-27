@@ -1,24 +1,39 @@
 
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google';
 import {
   FolderKanban,
-  ExternalLink,
   LogOut,
   Loader2,
-  
   ChevronDown,
   LayoutDashboard,
   LifeBuoy,
   Lock,
   CheckCircle2,
   Building2,
-  Rocket
+  Folder as FolderIcon,
+  File as FileIcon,
+  ArrowLeft,
+  HardDrive,
+  RefreshCw
 } from "lucide-react";
+import { listFolders, listFilesInFolder } from "@/lib/googleDrive";
+
+interface DriveItem {
+  id: string;
+  name: string;
+  mimeType: string;
+  webViewLink?: string;
+  modifiedTime?: string;
+  size?: string;
+  iconLink?: string;
+  thumbnailLink?: string;
+}
 import { PerceptionSuiteLogo } from "@/components/icons/PerceptionSuiteLogo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -41,199 +56,155 @@ function DashboardContent() {
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [orgName, setOrgName] = useState("Your Organization");
   const [orgLogo, setOrgLogo] = useState<string | undefined>("https://placehold.co/64x64.png");
-  const [driveLink, setDriveLink] = useState<string>("#");
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState<string>("User");
   const [userEmail, setUserEmail] = useState<string>("");
-  const [isClient, setIsClient] = useState(false);
   const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
-  
-  // Set client-side state on mount
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-  
-  // Add cache state and timestamp for data freshness tracking
-  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
-  const [domainMappingCache, setDomainMappingCache] = useState<{domain: string, drive_link: string} | null>(null);
-  
-  // Cache expiration time in milliseconds (e.g., 5 minutes)
-  const CACHE_EXPIRATION = 5 * 60 * 1000;
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [currentFolder, setCurrentFolder] = useState<DriveItem | null>(null);
+  const [driveItems, setDriveItems] = useState<DriveItem[]>([]);
+  const [isLoadingDrive, setIsLoadingDrive] = useState(false);
+  const [driveError, setDriveError] = useState<string | null>(null);
+  const [driveLink, setDriveLink] = useState<string>("#");
 
-  // Function to check if data is stale
-  const isDataStale = () => {
-    return !lastFetchTime || (Date.now() - lastFetchTime > CACHE_EXPIRATION);
+  const getFolderIdFromLink = (link: string) => {
+    const match = link.match(/folders\/([\w-]+)/);
+    return match ? match[1] : null;
   };
 
-  // Function to normalize and validate drive URL
-  const normalizeDriveUrl = (url: string): string => {
-    console.log('Normalizing URL:', url);
-    if (!url) {
-      console.log('URL is empty, returning #');
-      return '#';
-    }
+  const loadDriveItems = useCallback(async (token: string, folderId?: string) => {
+    if (!token) return;
     
-    // Ensure the URL has a protocol
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      console.log('Adding https:// protocol to URL');
-      url = 'https://' + url;
-    }
-    
-    // If it's a Google Drive URL, ensure it's in the correct format
-    if (url.includes('drive.google.com')) {
-      console.log('Processing Google Drive URL');
-      // Convert any Google Drive URL to the standard format
-      const fileIdMatch = url.match(/[\w-]{25,}/);
-      if (fileIdMatch) {
-        const normalizedUrl = `https://drive.google.com/drive/folders/${fileIdMatch[0]}`;
-        console.log('Normalized Google Drive URL:', normalizedUrl);
-        return normalizedUrl;
-      }
-    }
-    
-    console.log('Returning URL as is:', url);
-    return url;
-  };
-
-  // Function to fetch domain mapping with caching
-  const fetchDomainMapping = async (email: string) => {
-    if (!email) return null;
-    
-    const currentOrgDomain = email.substring(email.lastIndexOf("@") + 1).toLowerCase();
-    
-    // Use cached data if available and not stale
-    if (domainMappingCache && !isDataStale()) {
-      return domainMappingCache;
-    }
+    setIsLoadingDrive(true);
+    setDriveError(null);
     
     try {
-      // Fetch fresh data
-      const { data: mapping, error: mappingError } = await supabase
-        .from('domain_mappings')
-        .select('drive_link, domain')
-        .eq('domain', currentOrgDomain)
-        .single();
-        
-      if (mappingError || !mapping) {
-        console.error('Error fetching domain mapping:', mappingError);
-        return null;
+      const [folders, files] = await Promise.all([
+        listFolders(token, folderId),
+        folderId ? listFilesInFolder(token, folderId) : Promise.resolve([])
+      ]);
+      
+      setDriveItems([...folders, ...files]);
+    } catch (error: any) {
+      console.error('Error loading drive items:', error);
+      setDriveError('Failed to load files. Please try again.');
+      if (error.message.includes('Invalid Credentials')) {
+        localStorage.removeItem('google_access_token');
+        setAccessToken(null);
       }
-      
-      // Normalize the drive link
-      const normalizedMapping = {
-        ...mapping,
-        drive_link: normalizeDriveUrl(mapping.drive_link)
-      };
-      
-      // Update cache and timestamp
-      setDomainMappingCache(normalizedMapping);
-      setLastFetchTime(Date.now());
-      
-      return normalizedMapping;
-    } catch (error) {
-      console.error('Error in fetchDomainMapping:', error);
-      return null;
+    } finally {
+      setIsLoadingDrive(false);
     }
-  };
+  }, []);
 
-  // Document visibility change handler
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      // Only refresh data if document becomes visible and data is stale
-      if (document.visibilityState === 'visible' && authUser && isDataStale()) {
-        // Background refresh without loading indicator
-        fetchDomainMapping(authUser.email || "").then(mapping => {
-          if (mapping) {
-            setOrgName(mapping.domain);
-            setOrgLogo(`https://placehold.co/64x64.png?text=${mapping.domain[0].toUpperCase()}`);
-            setDriveLink(mapping.drive_link);
-          }
-        });
+    const token = localStorage.getItem('google_access_token');
+    if (token) {
+      setAccessToken(token);
+      if (driveLink && driveLink !== "#") {
+        const folderId = getFolderIdFromLink(driveLink);
+        loadDriveItems(token, folderId || undefined);
       }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [authUser]);
+    }
+  }, [loadDriveItems, driveLink]);
+
+  const handleGoogleLoginSuccess = useCallback((tokenResponse: any) => {
+    const token = tokenResponse.access_token;
+    setAccessToken(token);
+    localStorage.setItem('google_access_token', token);
+    if (driveLink && driveLink !== "#") {
+      const folderId = getFolderIdFromLink(driveLink);
+      loadDriveItems(token, folderId || undefined);
+    }
+  }, [loadDriveItems, driveLink]);
+
+  const login = useGoogleLogin({
+    onSuccess: handleGoogleLoginSuccess,
+    onError: () => setDriveError('Failed to connect to Google Drive'),
+    scope: 'https://www.googleapis.com/auth/drive.readonly',
+  });
+
+  const handleFolderClick = useCallback((folder: DriveItem) => {
+    setCurrentFolder(folder);
+    if (accessToken) {
+      loadDriveItems(accessToken, folder.id);
+    }
+  }, [accessToken, loadDriveItems]);
+
+  const handleBack = useCallback(() => {
+    setCurrentFolder(null);
+    if (accessToken && driveLink && driveLink !== "#") {
+      const folderId = getFolderIdFromLink(driveLink);
+      loadDriveItems(accessToken, folderId || undefined);
+    }
+  }, [accessToken, loadDriveItems, driveLink]);
+
+  const handleRefresh = useCallback(() => {
+    if (accessToken) {
+      const folderId = currentFolder ? currentFolder.id : getFolderIdFromLink(driveLink || "");
+      loadDriveItems(accessToken, folderId || undefined);
+    }
+  }, [accessToken, currentFolder, loadDriveItems, driveLink]);
 
   useEffect(() => {
     const checkAuthAndRole = async () => {
       setIsLoading(true);
-      const userToVerify = authUser || (await supabase.auth.getUser()).data.user;
+      const { data: { user } } = await supabase.auth.getUser();
 
-      if (!userToVerify) {
+      if (!user) {
         router.push("/");
-        setIsLoading(false);
         return;
       }
 
-      const userRole = userToVerify.user_metadata?.role;
-      if (userRole === 'admin') {
+      if (user.user_metadata?.role === 'admin') {
         toast({ title: "Admin Access", description: "Redirecting to admin dashboard.", variant: "default" });
         router.push("/admin/dashboard");
-        setIsLoading(false);
         return;
       }
       
-      if (!authUser || authUser.id !== userToVerify.id) {
-         setAuthUser(userToVerify);
-      }
-
-      setUserEmail(userToVerify.email || "");
-      setUserName(userToVerify.user_metadata?.full_name || userToVerify.email?.split('@')[0] || "User");
-
-      const currentEmail = userToVerify.email;
-      if (!currentEmail) {
-        toast({ title: "Invalid Email", description: "Could not determine your organization's domain. Email is missing.", variant: "destructive", duration: 5000 });
-        router.push("/error/unrecognized-domain");
-        setIsLoading(false);
-        return;
-      }
-
-      // Use the cached fetch function
-      const mapping = await fetchDomainMapping(currentEmail);
-
-      if (!mapping) {
-        const currentOrgDomain = currentEmail.substring(currentEmail.lastIndexOf("@") + 1).toLowerCase();
-        console.error("Domain mapping not found for:", currentOrgDomain);
-        toast({ title: "Domain Not Recognized", description: `Your domain (${currentOrgDomain}) is not configured for Drive access. Redirecting...`, variant: "destructive", duration: 5000 });
-        router.push("/error/unrecognized-domain");
-        setIsLoading(false);
-        return;
-      } else {
-        setOrgName(mapping.domain);
-        setOrgLogo(`https://placehold.co/64x64.png?text=${mapping.domain[0].toUpperCase()}`);
-        setDriveLink(mapping.drive_link);
-      }
+      setAuthUser(user);
+      setUserEmail(user.email || "");
+      setUserName(user.user_metadata?.full_name || user.email?.split('@')[0] || "User");
       
+      // Fetch domain mapping and set drive link
+      const currentEmail = user.email;
+      if (currentEmail) {
+        const { data: mapping } = await supabase
+          .from('domain_mappings')
+          .select('drive_link, domain')
+          .eq('domain', currentEmail.substring(currentEmail.lastIndexOf("@") + 1).toLowerCase())
+          .single();
+        if (mapping) {
+          setDriveLink(mapping.drive_link);
+          setOrgName(mapping.domain);
+        }
+      }
+
       setIsLoading(false);
     };
 
-    if (authUser) {
-        checkAuthAndRole();
-    } else { // Only run initial fetch if authUser is not set yet
-        checkAuthAndRole();
-    }
+    checkAuthAndRole();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || !session) {
+      if (event === 'SIGNED_OUT') {
         setAuthUser(null);
         router.push('/');
-      } else if (session?.user && (event === 'SIGNED_IN' || !authUser)) {
-        // Only update auth user on sign in or if not already set
-        setAuthUser(session.user); 
+      } else if (event === 'SIGNED_IN') {
+        setAuthUser(session?.user ?? null);
       }
     });
 
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser, router, supabase, toast]);
+  }, [router, supabase, toast]);
 
   const handleLogout = async () => {
-    setIsLoading(true);
     await supabase.auth.signOut();
+    localStorage.removeItem('google_access_token');
+    setAccessToken(null);
+    setDriveItems([]);
+    router.push('/');
   };
 
   const getUserInitials = () => {
@@ -247,11 +218,11 @@ function DashboardContent() {
     return "U";
   }
 
-  if (isLoading || !authUser || authUser.user_metadata?.role === 'admin') {
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg text-muted-foreground">Verifying access and loading dashboard...</p>
+        <p className="text-lg text-muted-foreground">Loading dashboard...</p>
       </div>
     );
   }
@@ -265,13 +236,11 @@ function DashboardContent() {
           </div>
 
           <div className="flex items-center space-x-4">
-            
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative flex items-center space-x-2 p-1 h-auto">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={orgLogo} alt={userName || "User"} data-ai-hint="company logo" />
+                    <AvatarImage src={orgLogo} alt={userName || "User"} />
                     <AvatarFallback>{getUserInitials()}</AvatarFallback>
                   </Avatar>
                   <div className="hidden md:flex flex-col items-start">
@@ -307,72 +276,79 @@ function DashboardContent() {
         <Card className="shadow-lg border-border">
           <CardHeader>
             <CardTitle className="text-3xl font-headline">👋 Welcome back, {userName}!</CardTitle>
-            <CardDescription className="text-md">Access resources for {orgName}</CardDescription>
+            <CardDescription className="text-md">Access resources for your organization</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
               <span className="flex items-center text-green-600 dark:text-green-400"><Lock className="mr-1.5 h-4 w-4" /> Secure</span>
               <span className="flex items-center text-green-600 dark:text-green-400"><CheckCircle2 className="mr-1.5 h-4 w-4" /> Verified</span>
-              <span className="flex items-center text-muted-foreground"><Building2 className="mr-1.5 h-4 w-4" /> {orgName}</span>
             </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-lg border-border">
           <CardHeader>
-            <CardTitle className="text-2xl font-headline flex items-center">
-              <FolderKanban className="mr-3 h-7 w-7 text-primary" />
-              Your Organization Collateral
-            </CardTitle>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-2xl font-headline flex items-center">
+                <FolderKanban className="mr-3 h-7 w-7 text-primary" />
+                {currentFolder ? currentFolder.name : orgName ? `${orgName} Collateral` : 'Organization Collateral'}
+              </CardTitle>
+              <div className="flex space-x-2">
+                {currentFolder && (
+                  <Button variant="outline" size="sm" onClick={handleBack} className="flex items-center">
+                    <ArrowLeft className="mr-1 h-4 w-4" /> Back
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={handleRefresh} disabled={!accessToken || isLoadingDrive} className="flex items-center">
+                  <RefreshCw className={`mr-1 h-4 w-4 ${isLoadingDrive ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <Card className="bg-card shadow-inner">
-              <CardHeader>
-                  <CardTitle className="text-xl flex items-center">
-                      <Rocket className="mr-2 h-5 w-5 text-primary" />
-                      Access {orgName} Drive
-                  </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                  <p className="text-muted-foreground">
-                    All your organization's design collateral in one place.
-                  </p>
-                  <div className="space-y-2">
-                    <Button
-                      size="lg"
-                      onClick={() => {
-                        if (!driveLink || driveLink === '#') {
-                          console.error('No valid drive link');
-                          return;
-                        }
-                        
-                        // Create a temporary anchor element to handle the click
-                        const a = document.createElement('a');
-                        a.href = driveLink;
-                        a.target = '_blank';
-                        a.rel = 'noopener noreferrer';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                      }}
-                      className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
-                      aria-label={`Open ${orgName} Google Drive folder`}
-                      disabled={!isClient || !driveLink || driveLink === "#" || !driveLink.startsWith("https://")}
-                    >
-                      <ExternalLink className="mr-2 h-5 w-5" /> Open Folder
-                    </Button>
-                    {driveLink && driveLink !== "#" && (
-                      <p className="text-xs text-muted-foreground break-all">
-                        Link: <span className="text-foreground">{driveLink}</span>
-                      </p>
+            {!accessToken ? (
+              <div className="flex flex-col items-center justify-center p-8 space-y-4">
+                <HardDrive className="h-12 w-12 text-muted-foreground" />
+                <p className="text-muted-foreground text-center">Connect to Google Drive to access your files</p>
+                <Button onClick={() => login()}><HardDrive className="mr-2 h-4 w-4" />Connect to Google Drive</Button>
+              </div>
+            ) : isLoadingDrive ? (
+              <div className="flex justify-center items-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : driveError ? (
+              <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-md text-red-600 dark:text-red-400">
+                {driveError}
+              </div>
+            ) : driveItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-8 space-y-2 text-muted-foreground">
+                <FolderIcon className="h-12 w-12" />
+                <p>No files or folders found</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {driveItems.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => item.mimeType.includes('folder') ? handleFolderClick(item) : window.open(item.webViewLink, '_blank', 'noopener,noreferrer')}
+                    className="group p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer flex flex-col items-center text-center"
+                  >
+                    {item.mimeType.includes('folder') ? (
+                      <FolderIcon className="h-12 w-12 text-yellow-500 mb-2 group-hover:text-yellow-600 transition-colors" />
+                    ) : (
+                      <FileIcon className="h-12 w-12 text-gray-500 mb-2 group-hover:text-gray-600 transition-colors" />
+                    )}
+                    <span className="font-medium text-sm line-clamp-2">{item.name}</span>
+                    {item.modifiedTime && (
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {new Date(item.modifiedTime).toLocaleDateString()}
+                      </span>
                     )}
                   </div>
-                  {driveLink === "#" && <p className="text-sm text-destructive">Drive link not configured for your domain.</p>}
-              </CardContent>
-            </Card>
-            {/* <p className="text-sm text-muted-foreground text-center pt-2">
-              📊 Folder contains: -- files • Last updated: --
-            </p> */}
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
@@ -385,14 +361,15 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={
-      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg text-muted-foreground">Loading dashboard...</p>
-      </div>
-    }>
-      <DashboardContent />
-    </Suspense>
+    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}>
+      <Suspense fallback={
+        <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-background">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+          <p className="text-lg text-muted-foreground">Loading dashboard...</p>
+        </div>
+      }>
+        <DashboardContent />
+      </Suspense>
+    </GoogleOAuthProvider>
   );
 }
-
