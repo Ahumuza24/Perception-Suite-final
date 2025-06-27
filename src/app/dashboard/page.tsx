@@ -243,7 +243,7 @@ function DashboardContent() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative flex items-center space-x-2 p-1 h-auto">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={orgLogo} alt={userName || "User"} />
+                    <AvatarImage src={`https://ui-avatars.com/api/?name=${userName}&background=random`} alt={userName || "User"} />
                     <AvatarFallback>{getUserInitials()}</AvatarFallback>
                   </Avatar>
                   <div className="hidden md:flex flex-col items-start">
