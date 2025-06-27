@@ -29,11 +29,13 @@ interface DriveItem {
   name: string;
   mimeType: string;
   webViewLink?: string;
+  webContentLink?: string;
   modifiedTime?: string;
   size?: string;
   iconLink?: string;
   thumbnailLink?: string;
 }
+
 import { PerceptionSuiteLogo } from "@/components/icons/PerceptionSuiteLogo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -47,6 +49,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 function DashboardContent() {
   const router = useRouter();
@@ -331,19 +334,44 @@ function DashboardContent() {
                 {driveItems.map((item) => (
                   <div
                     key={item.id}
-                    onClick={() => item.mimeType.includes('folder') ? handleFolderClick(item) : window.open(item.webViewLink, '_blank', 'noopener,noreferrer')}
                     className="group p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors cursor-pointer flex flex-col items-center text-center"
                   >
                     {item.mimeType.includes('folder') ? (
-                      <FolderIcon className="h-12 w-12 text-yellow-500 mb-2 group-hover:text-yellow-600 transition-colors" />
+                      <div onClick={() => handleFolderClick(item)} className="flex flex-col items-center">
+                        <FolderIcon className="h-12 w-12 text-yellow-500 mb-2 group-hover:text-yellow-600 transition-colors" />
+                        <span className="font-medium text-sm line-clamp-2">{item.name}</span>
+                        {item.modifiedTime && (
+                          <span className="text-xs text-muted-foreground mt-1">
+                            {new Date(item.modifiedTime).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
                     ) : (
-                      <FileIcon className="h-12 w-12 text-gray-500 mb-2 group-hover:text-gray-600 transition-colors" />
-                    )}
-                    <span className="font-medium text-sm line-clamp-2">{item.name}</span>
-                    {item.modifiedTime && (
-                      <span className="text-xs text-muted-foreground mt-1">
-                        {new Date(item.modifiedTime).toLocaleDateString()}
-                      </span>
+                      <>
+                        <FileIcon className="h-12 w-12 text-gray-500 mb-2 group-hover:text-gray-600 transition-colors" />
+                        <span className="font-medium text-sm line-clamp-2">{item.name}</span>
+                        {item.modifiedTime && (
+                          <span className="text-xs text-muted-foreground mt-1">
+                            {new Date(item.modifiedTime).toLocaleDateString()}
+                          </span>
+                        )}
+                        <div className="flex space-x-2 mt-2">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">Preview</Button>
+                            </DialogTrigger>
+                            <DialogContent className="w-[90vw] h-[90vh]">
+                              <DialogHeader>
+                                <DialogTitle>{item.name}</DialogTitle>
+                              </DialogHeader>
+                              <iframe src={item.webViewLink?.replace('view', 'preview')} className="w-full h-full" />
+                            </DialogContent>
+                          </Dialog>
+                          <a href={item.webContentLink} download>
+                            <Button variant="outline" size="sm">Download</Button>
+                          </a>
+                        </div>
+                      </>
                     )}
                   </div>
                 ))}

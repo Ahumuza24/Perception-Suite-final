@@ -44,7 +44,7 @@ export async function listFolders(token: string, folderId?: string): Promise<Dri
 
 export async function listFilesInFolder(token: string, folderId: string): Promise<DriveFile[]> {
   const query = `'${folderId}' in parents and mimeType!='application/vnd.google-apps.folder' and trashed=false`;
-  const url = `${API_URL}?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,modifiedTime,size,iconLink,thumbnailLink)&orderBy=name`;
+  const url = `${API_URL}?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,webViewLink,webContentLink,modifiedTime,size,iconLink,thumbnailLink)&orderBy=name`;
   const data = await fetchDrive(url, token);
   return data.files || [];
 }
