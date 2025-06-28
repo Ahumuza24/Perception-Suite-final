@@ -313,8 +313,8 @@ function DashboardContent() {
             {!accessToken ? (
               <div className="flex flex-col items-center justify-center p-8 space-y-4">
                 <HardDrive className="h-12 w-12 text-muted-foreground" />
-                <p className="text-muted-foreground text-center">Connect to Google Drive to access your files</p>
-                <Button onClick={() => login()}><HardDrive className="mr-2 h-4 w-4" />Connect to Google Drive</Button>
+                <p className="text-muted-foreground text-center">Connect to Drive to access your files</p>
+                <Button onClick={() => login()}><HardDrive className="mr-2 h-4 w-4" />Connect to Drive</Button>
               </div>
             ) : isLoadingDrive ? (
               <div className="flex justify-center items-center p-8">

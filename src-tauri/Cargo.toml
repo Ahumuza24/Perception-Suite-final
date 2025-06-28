@@ -1,9 +1,9 @@
 [package]
-name = "app"
+name = "PerceptionSuite"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
+description = "This app provides easy access for users to their design collateral"
+authors = ["Cedric Ahumuza"]
+license = "MIT"
 repository = ""
 edition = "2021"
 rust-version = "1.77.2"
