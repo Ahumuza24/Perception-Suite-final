@@ -5,22 +5,24 @@
   "identifier": "com.perceptionsuite.app",
   "build": {
     "frontendDist": "../out",
-    "devUrl": "http://localhost:3000",
+    "devUrl": "https://perceptionsuite.vercel.app",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "PerceptionSuite",
-        "width": 800,
-        "height": 600,
+        "width": 1200,
+        "height": 800,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "url": "https://perceptionsuite.vercel.app"
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self' https://perceptionsuite.vercel.app https: http: data: blob: 'unsafe-inline' 'unsafe-eval'"
     }
   },
   "bundle": {
